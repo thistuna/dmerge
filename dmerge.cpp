@@ -13,6 +13,8 @@ void help(){
 	std::cout << "-skip     : 重複ファイルをスキップ(default)" << std::endl;
 	std::cout << "-sizeup   : ファイルサイズ大優先" << std::endl;
 	std::cout << "-sizedown : ファイルサイズ小優先" << std::endl;
+	std::cout << "-dry      : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
+//	std::cout << "-del      : 処理済みファイルを削除" << std::endl;
 	exit(0);
 }
 
@@ -48,6 +50,8 @@ int Main(std::vector<std::string> args)
 
 	enum class SizeFlag{skip, sizeup, sizedown,err};
 	SizeFlag sizeFlag = SizeFlag::skip;
+	//bool enddel = false;
+	bool dry = false;
 	bool optionerr = false;
 	for (int i = 3; i < args.size(); ++i) {
 		if (args[i] == "-skip")
@@ -56,6 +60,10 @@ int Main(std::vector<std::string> args)
 			sizeFlag = SizeFlag::sizeup;
 		else if (args[i] == "-sizedown")
 			sizeFlag = SizeFlag::sizedown;
+//		else if (args[i] == "-del")
+//			enddel = true;
+		else if (args[i] == "-dry")
+			dry = true;
 		else {
 			std::cout << "unknown parameter \"" << args[i] << "\"" << std::endl;
 			optionerr = true;
@@ -99,7 +107,8 @@ int Main(std::vector<std::string> args)
 					}
 					else{
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-						fsys::copy_file(x,outpath,fsys::copy_options::overwrite_existing);
+						if (!dry)
+							fsys::copy_file(x,outpath,fsys::copy_options::overwrite_existing);
 					}
 				}
 				else if (sizeFlag == SizeFlag::sizeup) {
@@ -109,7 +118,8 @@ int Main(std::vector<std::string> args)
 					}
 					else {
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-						fsys::copy_file(x, outpath, fsys::copy_options::overwrite_existing);
+						if (!dry)
+							fsys::copy_file(x, outpath, fsys::copy_options::overwrite_existing);
 					}
 				}
 			}
@@ -118,12 +128,14 @@ int Main(std::vector<std::string> args)
 			if (x.is_directory()) {
 				std::cout << "[DIR ]";
 				std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-				fsys::create_directory(outpath);
+				if (!dry)
+					fsys::create_directory(outpath);
 			}
 			else if (x.is_regular_file()){
 				std::cout << "[FILE]";
 				std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-				fsys::copy_file(x, outpath);
+				if (!dry)
+					fsys::copy_file(x, outpath);
 			}
 		}
 	}
