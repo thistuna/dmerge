@@ -7,7 +7,7 @@ namespace fsys = std::filesystem;
 
 void help(){
 	std::cout << "ディレクトリの内容を別のディレクトリにコピーします．" << std::endl;
-	std::cout << "dmerge コピー元 コピー先 [オプション]\n" << std::endl;
+	std::cout << "dmerge コピー元 コピー先 [オプション]\n" << std::endl; // Directory Merge
 
 	std::cout << "　オプション" << std::endl;
 	std::cout << "-skip     : 重複ファイルをスキップ(default)" << std::endl;
@@ -15,7 +15,6 @@ void help(){
 	std::cout << "-sizedown : ファイルサイズ小優先" << std::endl;
 	std::cout << "-dry      : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
 //	std::cout << "-del      : 処理済みファイルを削除" << std::endl;
-	exit(0);
 }
 
 int GetDigit(int num) {
@@ -33,6 +32,7 @@ int Main(std::vector<std::string> args)
 {
 	if(args.size() < 3){
 		help();
+		return 0;
 	}
 
 	fsys::path indirpath = args[1];
