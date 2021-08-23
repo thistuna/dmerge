@@ -15,6 +15,7 @@ void help(){
 	std::cout << "-skip                : 重複ファイルをスキップ(default)" << std::endl;
 	std::cout << "-sizeup              : ファイルサイズ大優先" << std::endl;
 	std::cout << "-sizedown            : ファイルサイズ小優先" << std::endl;
+	std::cout << "-flow [dir]          : コピー先の重複ファイルを指定のディレクトリに移動" << std::endl;
 	std::cout << "-ext [ext1,ext2,...] : 指定の拡張子のみ実行" << std::endl;
 	std::cout << "-dry                 : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
 	std::cout << "-del                 : 処理済みファイルを削除" << std::endl;
@@ -58,12 +59,13 @@ int Main(std::vector<std::string> args)
 		return 0;
 	}
 
-	enum class SizeFlag{skip, sizeup, sizedown,err};
+	enum class SizeFlag{skip, sizeup, sizedown,flow,err};
 	SizeFlag sizeFlag = SizeFlag::skip;
 	bool enddel = false;
 	bool dry = false;
 	bool ext_filter = false;
 	std::vector<std::string> ext_list;
+	std::string flow_dir = "";
 	bool optionerr = false;
 	for (unsigned int i = 3; i < args.size(); ++i) {
 		if (args[i] == "-skip")
@@ -84,6 +86,10 @@ int Main(std::vector<std::string> args)
 				ext_list.push_back(buf);
 			}
 		}
+		else if (args[i] == "-flow") {
+			sizeFlag = SizeFlag::flow;
+			flow_dir = args[++i];
+		}
 		else {
 			std::cout << "unknown parameter \"" << args[i] << "\"" << std::endl;
 			optionerr = true;
@@ -93,7 +99,11 @@ int Main(std::vector<std::string> args)
 			return 0;
 		}
 	}
-	std::cout << "Mode:" << (sizeFlag == SizeFlag::skip ? "Skip" : sizeFlag == SizeFlag::sizeup ? "SizeUp" : sizeFlag == SizeFlag::sizedown ? "SizeDown" : "") << std::endl;
+	std::cout << "Mode:" << (
+		sizeFlag == SizeFlag::skip ? "Skip" : 
+		sizeFlag == SizeFlag::sizeup ? "SizeUp" :
+		sizeFlag == SizeFlag::sizedown ? "SizeDown" :
+		sizeFlag == SizeFlag::flow ? "Flow" : "") << std::endl;
 
 	std::cout << "outdir: " << outdirpath.string() << std::endl;
 
@@ -162,6 +172,21 @@ int Main(std::vector<std::string> args)
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
 						if (!dry)
 							copy_rename_file(x, outpath, enddel);
+					}
+				}
+				else if (sizeFlag == SizeFlag::flow) {
+					fsys::path flowpath = flow_dir + "\\" + relpath.string();
+					flowpath = flowpath.lexically_normal();
+					fsys::path flowparent = flowpath.parent_path();
+
+					std::cout << x.path().string() << " > " << outpath.string() << " > " << flowpath.string() << std::endl;
+
+					if (!dry) {
+						if (!fsys::is_directory(flowparent)) {
+							fsys::create_directory(flowparent);
+						}
+						fsys::rename(outpath, flowpath);
+						copy_rename_file(x, outpath, enddel);
 					}
 				}
 			}
