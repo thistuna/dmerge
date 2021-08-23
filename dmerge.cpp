@@ -14,7 +14,7 @@ void help(){
 	std::cout << "-sizeup   : ファイルサイズ大優先" << std::endl;
 	std::cout << "-sizedown : ファイルサイズ小優先" << std::endl;
 	std::cout << "-dry      : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
-//	std::cout << "-del      : 処理済みファイルを削除" << std::endl;
+	std::cout << "-del      : 処理済みファイルを削除" << std::endl;
 }
 
 int GetDigit(int num) {
@@ -26,6 +26,13 @@ int GetDigit(int num) {
 		count++;
 	}
 	return count;
+}
+
+inline bool copy_rename_file(const fsys::path& _From, const fsys::path& _To, bool is_rename = false) {
+	if (is_rename) {
+		return fsys::rename(_From, _To), true;
+	}
+	return fsys::copy_file(_From, _To, fsys::copy_options::overwrite_existing);
 }
 
 int Main(std::vector<std::string> args)
@@ -50,7 +57,7 @@ int Main(std::vector<std::string> args)
 
 	enum class SizeFlag{skip, sizeup, sizedown,err};
 	SizeFlag sizeFlag = SizeFlag::skip;
-	//bool enddel = false;
+	bool enddel = false;
 	bool dry = false;
 	bool optionerr = false;
 	for (int i = 3; i < args.size(); ++i) {
@@ -60,8 +67,8 @@ int Main(std::vector<std::string> args)
 			sizeFlag = SizeFlag::sizeup;
 		else if (args[i] == "-sizedown")
 			sizeFlag = SizeFlag::sizedown;
-//		else if (args[i] == "-del")
-//			enddel = true;
+		else if (args[i] == "-del")
+			enddel = true;
 		else if (args[i] == "-dry")
 			dry = true;
 		else {
@@ -102,24 +109,38 @@ int Main(std::vector<std::string> args)
 				}
 				else if (sizeFlag == SizeFlag::sizedown) {
 					if (x.file_size() >= fsys::file_size(outpath)) {
-						std::cout << "[SKIP]";
-						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+						if (enddel) {
+							std::cout << "[DEL ]";
+							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+							fsys::remove(x);
+						}
+						else {
+							std::cout << "[SKIP]";
+							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+						}
 					}
 					else{
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
 						if (!dry)
-							fsys::copy_file(x,outpath,fsys::copy_options::overwrite_existing);
+							copy_rename_file(x, outpath, enddel);
 					}
 				}
 				else if (sizeFlag == SizeFlag::sizeup) {
 					if (x.file_size() <= fsys::file_size(outpath)) {
-						std::cout << "[SKIP]";
-						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+						if (enddel) {
+							std::cout << "[DEL ]";
+							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+							fsys::remove(x);
+						}
+						else {
+							std::cout << "[SKIP]";
+							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
+						}
 					}
 					else {
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
 						if (!dry)
-							fsys::copy_file(x, outpath, fsys::copy_options::overwrite_existing);
+							copy_rename_file(x, outpath, enddel);
 					}
 				}
 			}
@@ -135,7 +156,7 @@ int Main(std::vector<std::string> args)
 				std::cout << "[FILE]";
 				std::cout << x.path().string() << " > " << outpath.string() << std::endl;
 				if (!dry)
-					fsys::copy_file(x, outpath);
+					copy_rename_file(x, outpath, enddel);
 			}
 		}
 	}
