@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <sstream>
+#include <istream>
 
 namespace fsys = std::filesystem;
 
@@ -10,11 +12,13 @@ void help(){
 	std::cout << "dmerge コピー元 コピー先 [オプション]\n" << std::endl; // Directory Merge
 
 	std::cout << "　オプション" << std::endl;
-	std::cout << "-skip     : 重複ファイルをスキップ(default)" << std::endl;
-	std::cout << "-sizeup   : ファイルサイズ大優先" << std::endl;
-	std::cout << "-sizedown : ファイルサイズ小優先" << std::endl;
-	std::cout << "-dry      : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
-	std::cout << "-del      : 処理済みファイルを削除" << std::endl;
+	std::cout << "-skip                : 重複ファイルをスキップ(default)" << std::endl;
+	std::cout << "-sizeup              : ファイルサイズ大優先" << std::endl;
+	std::cout << "-sizedown            : ファイルサイズ小優先" << std::endl;
+	std::cout << "-flow [dir]          : コピー先の重複ファイルを指定のディレクトリに移動" << std::endl;
+	std::cout << "-ext [ext1,ext2,...] : 指定の拡張子のみ実行" << std::endl;
+	std::cout << "-dry                 : 実際にはファイル操作を行わない(ファイル名の列挙のみ)" << std::endl;
+	std::cout << "-del                 : 処理済みファイルを削除" << std::endl;
 }
 
 int GetDigit(int num) {
@@ -55,12 +59,15 @@ int Main(std::vector<std::string> args)
 		return 0;
 	}
 
-	enum class SizeFlag{skip, sizeup, sizedown,err};
+	enum class SizeFlag{skip, sizeup, sizedown,flow,err};
 	SizeFlag sizeFlag = SizeFlag::skip;
 	bool enddel = false;
 	bool dry = false;
+	bool ext_filter = false;
+	std::vector<std::string> ext_list;
+	std::string flow_dir = "";
 	bool optionerr = false;
-	for (int i = 3; i < args.size(); ++i) {
+	for (unsigned int i = 3; i < args.size(); ++i) {
 		if (args[i] == "-skip")
 			sizeFlag = SizeFlag::skip;
 		else if (args[i] == "-sizeup")
@@ -71,6 +78,18 @@ int Main(std::vector<std::string> args)
 			enddel = true;
 		else if (args[i] == "-dry")
 			dry = true;
+		else if (args[i] == "-ext") {
+			ext_filter = true;
+			std::stringstream ss{ args[++i] };
+			std::string buf;
+			while (std::getline(ss, buf, ',')) {
+				ext_list.push_back(buf);
+			}
+		}
+		else if (args[i] == "-flow") {
+			sizeFlag = SizeFlag::flow;
+			flow_dir = args[++i];
+		}
 		else {
 			std::cout << "unknown parameter \"" << args[i] << "\"" << std::endl;
 			optionerr = true;
@@ -80,21 +99,33 @@ int Main(std::vector<std::string> args)
 			return 0;
 		}
 	}
-	std::cout << "Mode:" << (sizeFlag == SizeFlag::skip ? "Skip" : sizeFlag == SizeFlag::sizeup ? "SizeUp" : sizeFlag == SizeFlag::sizedown ? "SizeDown" : "") << std::endl;
+	std::cout << "Mode:" << (
+		sizeFlag == SizeFlag::skip ? "Skip" : 
+		sizeFlag == SizeFlag::sizeup ? "SizeUp" :
+		sizeFlag == SizeFlag::sizedown ? "SizeDown" :
+		sizeFlag == SizeFlag::flow ? "Flow" : "") << std::endl;
 
 	std::cout << "outdir: " << outdirpath.string() << std::endl;
 
 	int filecount = 0;
-	int filenum = 0;
+	std::vector<fsys::directory_entry> srclist;
 	for (const fsys::directory_entry& x : fsys::recursive_directory_iterator(indirpath)) {
-		filenum++;
+		if(!ext_filter || x.is_directory())
+			srclist.push_back(x);
+		else {
+			for (const auto ext : ext_list) {
+				if (x.path().extension() == ext || x.path().extension() == "." + ext) {
+					srclist.push_back(x);
+				}
+			}
+		}
 	}
-	for (const fsys::directory_entry& x : fsys::recursive_directory_iterator(indirpath)) {
+	for (const fsys::directory_entry& x : srclist) {
 		fsys::path relpath = x.path().lexically_relative(indirpath);
 		fsys::path outpath = outdirpath.string() + "\\" + relpath.string();
 		outpath = outpath.lexically_normal();
 
-		std::cout << "[" << std::setw(GetDigit(filenum)) << ++filecount << "/" << filenum << "]";
+		std::cout << "[" << std::setw(GetDigit(srclist.size())) << ++filecount << "/" << srclist.size() << "]";
 
 		if (fsys::exists(outpath)) {
 			if (fsys::is_directory(outpath)) {
@@ -141,6 +172,21 @@ int Main(std::vector<std::string> args)
 						std::cout << x.path().string() << " > " << outpath.string() << std::endl;
 						if (!dry)
 							copy_rename_file(x, outpath, enddel);
+					}
+				}
+				else if (sizeFlag == SizeFlag::flow) {
+					fsys::path flowpath = flow_dir + "\\" + relpath.string();
+					flowpath = flowpath.lexically_normal();
+					fsys::path flowparent = flowpath.parent_path();
+
+					std::cout << x.path().string() << " > " << outpath.string() << " > " << flowpath.string() << std::endl;
+
+					if (!dry) {
+						if (!fsys::is_directory(flowparent)) {
+							fsys::create_directory(flowparent);
+						}
+						fsys::rename(outpath, flowpath);
+						copy_rename_file(x, outpath, enddel);
 					}
 				}
 			}
