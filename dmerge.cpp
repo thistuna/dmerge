@@ -143,7 +143,8 @@ int Main(std::vector<std::string> args)
 						if (enddel) {
 							std::cout << "[DEL ]";
 							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-							fsys::remove(x);
+							if (!dry)
+								fsys::remove(x);
 						}
 						else {
 							std::cout << "[SKIP]";
@@ -161,7 +162,8 @@ int Main(std::vector<std::string> args)
 						if (enddel) {
 							std::cout << "[DEL ]";
 							std::cout << x.path().string() << " > " << outpath.string() << std::endl;
-							fsys::remove(x);
+							if (!dry)
+								fsys::remove(x);
 						}
 						else {
 							std::cout << "[SKIP]";
